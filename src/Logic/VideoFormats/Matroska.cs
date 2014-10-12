@@ -143,32 +143,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         public List<MatroskaTrackInfo> GetTrackInfo()
         {
-            _tracks = new List<MatroskaTrackInfo>();
-            
-            // skip header
-            _stream.Position = 4;
-            var elementSize = (long)ReadVariableLengthUInt();
-            _stream.Seek(elementSize, SeekOrigin.Current);
-
-            ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
-            {
-                elementSize = (long)ReadVariableLengthUInt();
-                var afterPosition = _stream.Position + elementSize;
-                switch (elementId)
-                {
-                    case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(afterPosition);
-                        break;
-                    case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(afterPosition);
-                        break;
-                    case ElementId.Segment:
-                        continue;
-                }
-                _stream.Seek(afterPosition, SeekOrigin.Begin);
-            }
-
+            ReadFile(true, null);
             return _tracks;
         }
 
@@ -180,7 +155,8 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         public long GetTrackStartTime(int trackNumber)
         {
             _tracks = new List<MatroskaTrackInfo>();
-            
+            _subtitleList = new List<MatroskaSubtitleInfo>();
+
             // skip header
             _stream.Position = 4;
             var elementSize = (long)ReadVariableLengthUInt();
@@ -355,20 +331,17 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 }
                 _stream.Seek(afterPosition, SeekOrigin.Begin);
             }
-
-            if (_tracks != null)
+            
+            _tracks.Add(new MatroskaTrackInfo
             {
-                _tracks.Add(new MatroskaTrackInfo
-                {
-                    TrackNumber = (int)trackNumber,
-                    IsVideo = isVideo,
-                    IsAudio = isAudio,
-                    IsSubtitle = isSubtitle,
-                    Language = language,
-                    CodecId = codecId,
-                    CodecPrivate = codecPrivate,
-                });
-            }
+                TrackNumber = (int)trackNumber,
+                IsVideo = isVideo,
+                IsAudio = isAudio,
+                IsSubtitle = isSubtitle,
+                Language = language,
+                CodecId = codecId,
+                CodecPrivate = codecPrivate,
+            });
             if (isVideo)
             {
                 if (defaultDuration > 0)
@@ -461,8 +434,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         private void AnalyzeMatroskaTracks(long endPosition)
         {
-            _subtitleList = new List<MatroskaSubtitleInfo>();
-
             ElementId elementId;
             while (_stream.Position < endPosition && (elementId = ReadEbmlId()) != 0)
             {
@@ -480,32 +451,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         {
             _durationInMilliseconds = 0;
 
-            // skip header
-            _stream.Position = 4;
-            var elementSize = (long)ReadVariableLengthUInt();
-            _stream.Seek(elementSize, SeekOrigin.Current);
-
-            ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
-            {
-                elementSize = (long)ReadVariableLengthUInt();
-                var afterPosition = _stream.Position + elementSize;
-                switch (elementId)
-                {
-                    case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(afterPosition);
-                        break;
-                    case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(afterPosition);
-                        break;
-                    case ElementId.Cluster:
-                        AnalyzeMatroskaCluster(afterPosition);
-                        break;
-                    case ElementId.Segment:
-                        continue;
-                }
-                _stream.Seek(afterPosition, SeekOrigin.Begin);
-            }
+            ReadFile(true, null);
 
             pixelWidth = _pixelWidth;
             pixelHeight = _pixelHeight;
@@ -645,66 +591,14 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         public List<MatroskaSubtitleInfo> GetMatroskaSubtitleTracks()
         {
-            // skip header
-            _stream.Position = 4;
-            var elementSize = (long)ReadVariableLengthUInt();
-            _stream.Seek(elementSize, SeekOrigin.Current);
-
-            ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
-            {
-                elementSize = (long)ReadVariableLengthUInt();
-                var afterPosition = _stream.Position + elementSize;
-                switch (elementId)
-                {
-                    case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(afterPosition);
-                        break;
-                    case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(afterPosition);
-                        break;
-                    case ElementId.Segment:
-                        continue;
-                }
-                _stream.Seek(afterPosition, SeekOrigin.Begin);
-            }
-
+            ReadFile(true, null);
             return _subtitleList;
         }
 
         public List<SubtitleSequence> GetMatroskaSubtitle(int trackNumber, LoadMatroskaCallback callback)
         {
             _subtitleRipTrackNumber = trackNumber;
-
-            // skip header
-            _stream.Position = 4;
-            var elementSize = (long)ReadVariableLengthUInt();
-            _stream.Seek(elementSize, SeekOrigin.Current);
-
-            ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
-            {
-                elementSize = (long)ReadVariableLengthUInt();
-                var afterPosition = _stream.Position + elementSize;
-                switch (elementId)
-                {
-                    case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(afterPosition);
-                        break;
-                    case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(afterPosition);
-                        break;
-                    case ElementId.Cluster:
-                        AnalyzeMatroskaCluster(afterPosition);
-                        break;
-                    case ElementId.Segment:
-                        continue;
-                }
-                _stream.Seek(afterPosition, SeekOrigin.Begin);
-                if (callback != null)
-                    callback.Invoke(_stream.Position, _streamLength);
-            }
-
+            ReadFile(false, callback);
             return _subtitleRip;
         }
 
@@ -713,6 +607,56 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             if (_stream != null)
             {
                 _stream.Dispose();
+            }
+        }
+
+        private void ReadFile(bool tracksOnly, LoadMatroskaCallback callback)
+        {
+            // init
+            _tracks = new List<MatroskaTrackInfo>();
+            _subtitleList = new List<MatroskaSubtitleInfo>();
+
+            // skip header
+            _stream.Position = 4;
+            var elementSize = (long)ReadVariableLengthUInt();
+            _stream.Seek(elementSize, SeekOrigin.Current);
+
+            // read segment
+            var elementId = ReadEbmlId();
+            if (elementId != ElementId.Segment)
+            {
+                // invalid file
+                return;
+            }
+            elementSize = (long)ReadVariableLengthUInt();
+            var segmentEndPosition = _stream.Position + elementSize;
+
+            // level 1
+            while (_stream.Position < segmentEndPosition && (elementId = ReadEbmlId()) != 0)
+            {
+                elementSize = (long)ReadVariableLengthUInt();
+                var afterPosition = _stream.Position + elementSize;
+                switch (elementId)
+                {
+                    case ElementId.Info:
+                        AnalyzeMatroskaSegmentInformation(afterPosition);
+                        break;
+                    case ElementId.Tracks:
+                        AnalyzeMatroskaTracks(afterPosition);
+                        if (tracksOnly)
+                        {
+                            return;
+                        }
+                        break;
+                    case ElementId.Cluster:
+                        AnalyzeMatroskaCluster(afterPosition);
+                        break;
+                }
+                _stream.Seek(afterPosition, SeekOrigin.Begin);
+                if (callback != null)
+                {
+                    callback.Invoke(afterPosition, _streamLength);
+                }
             }
         }
 
