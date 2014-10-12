@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
+using Nikse.SubtitleEdit.Core;
 
 namespace Nikse.SubtitleEdit.Logic.Dictionaries
 {
@@ -34,6 +35,10 @@ namespace Nikse.SubtitleEdit.Logic.Dictionaries
                     LoadNamesList(Path.Combine(_dictionaryFolder, "names_etc.xml"), _namesList, _namesMultiList);
                     System.Diagnostics.Debug.WriteLine(exception.Message);
                 }
+            }
+            else
+            {
+                LoadNamesList(Path.Combine(_dictionaryFolder, "names_etc.xml"), _namesList, _namesMultiList);
             }
 
             LoadNamesList(GetLocalNamesFileName(), _namesList, _namesMultiList);

@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+﻿using Nikse.SubtitleEdit.Core;
 using Nikse.SubtitleEdit.Logic;
 using Nikse.SubtitleEdit.Logic.SubtitleFormats;
 using Nikse.SubtitleEdit.Logic.VobSub;
@@ -11,6 +11,7 @@ using System.Drawing.Text;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using System.Xml;
@@ -1793,7 +1794,7 @@ $DROP=[DROPVALUE]" + Environment.NewLine + Environment.NewLine +
             text = text.Replace("</B>", "</b>");
 
             // no support for underline
-            text = HtmlUtils.RemoveOpenCloseTags(text, HtmlUtils.TagUnderline);
+            text = HtmlUtil.RemoveOpenCloseTags(text, HtmlUtil.TagUnderline);
 
             Font font = SetFont(parameter, parameter.SubtitleFontSize);
             var lineHeight = parameter.LineHeight; // (textSize.Height * 0.64f);
@@ -1852,7 +1853,7 @@ $DROP=[DROPVALUE]" + Environment.NewLine + Environment.NewLine +
             {
                 foreach (string line in text.Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries))
                 {
-                    var lineNoHtml = HtmlUtils.RemoveOpenCloseTags(line, HtmlUtils.TagItalic, HtmlUtils.TagFont);
+                    var lineNoHtml = HtmlUtil.RemoveOpenCloseTags(line, HtmlUtil.TagItalic, HtmlUtil.TagFont);
                     if (parameter.AlignLeft)
                         lefts.Add(5);
                     else if (parameter.AlignRight)
@@ -1863,7 +1864,7 @@ $DROP=[DROPVALUE]" + Environment.NewLine + Environment.NewLine +
             }
             else
             {
-                foreach (var line in HtmlUtils.RemoveOpenCloseTags(text, HtmlUtils.TagItalic, HtmlUtils.TagFont).Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var line in HtmlUtil.RemoveOpenCloseTags(text, HtmlUtil.TagItalic, HtmlUtil.TagFont).Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (parameter.AlignLeft)
                         lefts.Add(5);
@@ -2700,6 +2701,17 @@ $DROP=[DROPVALUE]" + Environment.NewLine + Environment.NewLine +
                 buttonCustomResolution.Visible = false;
             }
 
+            comboBoxShadowWidth.SelectedIndex = 0;
+            bool shadowVisible = _exportType == "BDNXML" || _exportType == "BLURAYSUP" || _exportType == "DOST" || _exportType == "IMAGE/FRAME" || _exportType == "FCP" || _exportType == "DCINEMA_INTEROP";
+            labelShadowWidth.Visible = shadowVisible;
+            buttonShadowColor.Visible = shadowVisible;
+            comboBoxShadowWidth.Visible = shadowVisible;
+            if (comboBoxShadowWidth.Visible && Configuration.Settings.Tools.ExportBluRayShadow < comboBoxShadowWidth.Items.Count)
+                comboBoxShadowWidth.SelectedIndex = Configuration.Settings.Tools.ExportBluRayShadow;
+            panelShadowColor.Visible = shadowVisible;
+            labelShadowTransparency.Visible = shadowVisible;
+            numericUpDownShadowTransparency.Visible = shadowVisible;
+
             subtitleListView1.Fill(_subtitle);
             subtitleListView1.SelectIndexAndEnsureVisible(0);
         }
@@ -2931,16 +2943,6 @@ $DROP=[DROPVALUE]" + Environment.NewLine + Environment.NewLine +
 
         private void ExportPngXml_Shown(object sender, EventArgs e)
         {
-            comboBoxShadowWidth.SelectedIndex = 0;
-            bool shadowVisible = _exportType == "BDNXML" || _exportType == "BLURAYSUP" || _exportType == "DOST" || _exportType == "IMAGE/FRAME" || _exportType == "FCP" || _exportType == "DCINEMA_INTEROP";
-            labelShadowWidth.Visible = shadowVisible;
-            buttonShadowColor.Visible = shadowVisible;
-            comboBoxShadowWidth.Visible = shadowVisible;
-            if (comboBoxShadowWidth.Visible && Configuration.Settings.Tools.ExportBluRayShadow < comboBoxShadowWidth.Items.Count)
-                comboBoxShadowWidth.SelectedIndex = Configuration.Settings.Tools.ExportBluRayShadow;
-            panelShadowColor.Visible = shadowVisible;
-            labelShadowTransparency.Visible = shadowVisible;
-            numericUpDownShadowTransparency.Visible = shadowVisible;
             _isLoading = false;
             subtitleListView1_SelectedIndexChanged(null, null);
         }

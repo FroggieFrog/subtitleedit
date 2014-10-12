@@ -1,4 +1,5 @@
-﻿using Nikse.SubtitleEdit.Logic;
+﻿using Nikse.SubtitleEdit.Core;
+using Nikse.SubtitleEdit.Logic;
 using Nikse.SubtitleEdit.Logic.Dictionaries;
 using Nikse.SubtitleEdit.Logic.Enums;
 using Nikse.SubtitleEdit.Logic.SpellCheck;
@@ -1007,7 +1008,7 @@ namespace Nikse.SubtitleEdit.Forms
             _noOfAddedWords = 0;
             _firstChange = true;
 
-            if (!string.IsNullOrEmpty(Configuration.Settings.General.SpellCheckLanguage))
+            if (!string.IsNullOrEmpty(Configuration.Settings.General.SpellCheckLanguage) && File.Exists(Path.Combine(dictionaryFolder, Configuration.Settings.General.SpellCheckLanguage + ".dic")))
             {
                 _languageName = Configuration.Settings.General.SpellCheckLanguage;
             }

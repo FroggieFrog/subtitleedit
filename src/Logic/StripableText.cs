@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Nikse.SubtitleEdit.Core;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -11,8 +12,6 @@ namespace Nikse.SubtitleEdit.Logic
         public string Post { get; set; }
         public string StrippedText { get; set; }
         public string OriginalText { get; private set; }
-        private string _stripStartCharacters;
-        private string _stripEndCharacters;
 
         public string MergedString
         {
@@ -26,8 +25,6 @@ namespace Nikse.SubtitleEdit.Logic
 
         public StripableText(string text, string stripStartCharacters, string stripEndCharacters)
         {
-            _stripStartCharacters = stripStartCharacters;
-            _stripEndCharacters = stripEndCharacters;
             OriginalText = text;
 
             Pre = string.Empty;
@@ -35,7 +32,7 @@ namespace Nikse.SubtitleEdit.Logic
             {
                 for (int i = 0; i < 5; i++)
                 {
-                    while (text.Length > 0 && _stripStartCharacters.Contains(text[0]))
+                    while (text.Length > 0 && stripStartCharacters.Contains(text[0]))
                     {
                         Pre += text[0];
                         text = text.Substring(1);
@@ -69,7 +66,7 @@ namespace Nikse.SubtitleEdit.Logic
             {
                 for (int i = 0; i < 5; i++)
                 {
-                    while (text.Length > 0 && _stripEndCharacters.Contains(text[text.Length - 1]))
+                    while (text.Length > 0 && stripEndCharacters.Contains(text[text.Length - 1]))
                     {
                         Post = text[text.Length - 1] + Post;
                         text = text.Substring(0, text.Length - 1);
@@ -127,7 +124,7 @@ namespace Nikse.SubtitleEdit.Logic
 
             foreach (string name in namesEtc)
             {
-                int start = lower.IndexOf(name.ToLower(), StringComparison.Ordinal);
+                int start = lower.IndexOf(name, StringComparison.OrdinalIgnoreCase);
                 while (start >= 0 && start < lower.Length)
                 {
                     bool startOk = (start == 0) || (lower[start - 1] == ' ') || (lower[start - 1] == '-') ||

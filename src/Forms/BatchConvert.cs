@@ -1,4 +1,5 @@
-﻿using Nikse.SubtitleEdit.Logic;
+﻿using Nikse.SubtitleEdit.Core;
+using Nikse.SubtitleEdit.Logic;
 using Nikse.SubtitleEdit.Logic.BluRaySup;
 using Nikse.SubtitleEdit.Logic.SubtitleFormats;
 using Nikse.SubtitleEdit.Logic.VideoFormats;
@@ -362,11 +363,11 @@ namespace Nikse.SubtitleEdit.Forms
 
                 if (format == null)
                 {
-                    if (FileUtils.IsBluRaySup(fileName))
+                    if (FileUtil.IsBluRaySup(fileName))
                     {
                         item.SubItems.Add("Blu-ray");
                     }
-                    else if (FileUtils.IsVobSub(fileName))
+                    else if (FileUtil.IsVobSub(fileName))
                     {
                         item.SubItems.Add("VobSub");
                     }
@@ -674,12 +675,12 @@ namespace Nikse.SubtitleEdit.Forms
                     var bluRaySubtitles = new List<BluRaySupParser.PcsData>();
                     bool isVobSub = false;
                     bool isMatroska = false;
-                    if (format == null && fileName.EndsWith(".sup", StringComparison.OrdinalIgnoreCase) && FileUtils.IsBluRaySup(fileName))
+                    if (format == null && fileName.EndsWith(".sup", StringComparison.OrdinalIgnoreCase) && FileUtil.IsBluRaySup(fileName))
                     {
                         var log = new StringBuilder();
                         bluRaySubtitles = BluRaySupParser.ParseBluRaySup(fileName, log);
                     }
-                    else if (format == null && fileName.EndsWith(".sub", StringComparison.OrdinalIgnoreCase) && FileUtils.IsVobSub(fileName))
+                    else if (format == null && fileName.EndsWith(".sub", StringComparison.OrdinalIgnoreCase) && FileUtil.IsVobSub(fileName))
                     {
                         isVobSub = true;
                     }
@@ -898,9 +899,11 @@ namespace Nikse.SubtitleEdit.Forms
             {
                 try
                 {
-                    var form = new MultipleReplace();
-                    form.Initialize(state.Subtitle);
-                    state.Subtitle = form.FixedSubtitle;
+                    using (var form = new MultipleReplace())
+                    {
+                        form.Initialize(state.Subtitle);
+                        state.Subtitle = form.FixedSubtitle;
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -1004,20 +1007,24 @@ namespace Nikse.SubtitleEdit.Forms
             if (comboBoxSubtitleFormats.Text == new AdvancedSubStationAlpha().Name)
             {
                 var sub = new Subtitle();
-                var form = new SubStationAlphaStyles(sub, new AdvancedSubStationAlpha());
-                form.MakeOnlyOneStyle();
-                if (form.ShowDialog(this) == DialogResult.OK)
+                using (var form = new SubStationAlphaStyles(sub, new AdvancedSubStationAlpha()))
                 {
-                    _assStyle = form.Header;
+                    form.MakeOnlyOneStyle();
+                    if (form.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _assStyle = form.Header;
+                    }
                 }
             }
             else if (comboBoxSubtitleFormats.Text == new SubStationAlpha().Name)
             {
                 var sub = new Subtitle();
-                var form = new SubStationAlphaStyles(sub, new SubStationAlpha());
-                if (form.ShowDialog(this) == DialogResult.OK)
+                using (var form = new SubStationAlphaStyles(sub, new SubStationAlpha()))
                 {
-                    _ssaStyle = form.Header;
+                    if (form.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _ssaStyle = form.Header;
+                    }
                 }
             }
         }
@@ -1069,10 +1076,12 @@ namespace Nikse.SubtitleEdit.Forms
 
         private void buttonFixCommonErrorSettings_Click(object sender, EventArgs e)
         {
-            var form = new FixCommonErrors();
-            form.RunBatchSettings(new Subtitle(), GetCurrentSubtitleFormat(), GetCurrentEncoding(), Configuration.Settings.Tools.BatchConvertLanguage);
-            form.ShowDialog(this);
-            Configuration.Settings.Tools.BatchConvertLanguage = form.Language;
+            using (var form = new FixCommonErrors())
+            {
+                form.RunBatchSettings(new Subtitle(), GetCurrentSubtitleFormat(), GetCurrentEncoding(), Configuration.Settings.Tools.BatchConvertLanguage);
+                form.ShowDialog(this);
+                Configuration.Settings.Tools.BatchConvertLanguage = form.Language;
+            }
         }
 
         private void BatchConvert_FormClosing(object sender, FormClosingEventArgs e)
@@ -1098,9 +1107,11 @@ namespace Nikse.SubtitleEdit.Forms
 
         private void buttonMultipleReplaceSettings_Click(object sender, EventArgs e)
         {
-            var form = new MultipleReplace();
-            form.Initialize(new Subtitle());
-            form.ShowDialog(this);
+            using (var form = new MultipleReplace())
+            {
+                form.Initialize(new Subtitle());
+                form.ShowDialog(this);
+            }
         }
 
         private void checkBoxOverwriteOriginalFiles_CheckedChanged(object sender, EventArgs e)
@@ -1153,11 +1164,11 @@ namespace Nikse.SubtitleEdit.Forms
                     if (ext != ".png" && ext != ".jpg" && ext != ".dll" && ext != ".exe" && ext != ".zip")
                     {
                         var fi = new FileInfo(fileName);
-                        if (ext == ".sub" && FileUtils.IsVobSub(fileName))
+                        if (ext == ".sub" && FileUtil.IsVobSub(fileName))
                         {
                             AddFromSearch(fileName, fi, "VobSub");
                         }
-                        else if (ext == ".sup" && FileUtils.IsBluRaySup(fileName))
+                        else if (ext == ".sup" && FileUtil.IsBluRaySup(fileName))
                         {
                             AddFromSearch(fileName, fi, "Blu-ray");
                         }
@@ -1265,7 +1276,7 @@ namespace Nikse.SubtitleEdit.Forms
             item.SubItems.Add("-");
             listViewInputFiles.Items.Add(item);
         }
-        
+
         private void BatchConvert_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Escape)
@@ -1274,9 +1285,11 @@ namespace Nikse.SubtitleEdit.Forms
 
         private void buttonRemoveTextForHiSettings_Click(object sender, EventArgs e)
         {
-            var form = new FormRemoveTextForHearImpaired();
-            form.InitializeSettingsOnly();
-            form.ShowDialog(this);
+            using (var form = new FormRemoveTextForHearImpaired())
+            {
+                form.InitializeSettingsOnly();
+                form.ShowDialog(this);
+            }
         }
 
     }

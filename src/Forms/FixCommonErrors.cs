@@ -1,4 +1,5 @@
-﻿using Nikse.SubtitleEdit.Logic;
+﻿using Nikse.SubtitleEdit.Core;
+using Nikse.SubtitleEdit.Logic;
 using Nikse.SubtitleEdit.Logic.Dictionaries;
 using Nikse.SubtitleEdit.Logic.Forms;
 using Nikse.SubtitleEdit.Logic.Ocr;
@@ -143,7 +144,7 @@ namespace Nikse.SubtitleEdit.Forms
         private List<string> _abbreviationList;
         private StringBuilder _newLog = new StringBuilder();
         private readonly StringBuilder _appliedLog = new StringBuilder();
-        private int _numberOfImportantLogMessages = 0;
+        private int _numberOfImportantLogMessages;
         private List<int> _deleteIndices = new List<int>();
 
         public Subtitle FixedSubtitle
@@ -199,6 +200,15 @@ namespace Nikse.SubtitleEdit.Forms
                 if (ci == null)
                     return "en";
                 return ci.TwoLetterISOLanguageName;
+            }
+            set
+            {
+                for (int index = 0; index < comboBoxLanguage.Items.Count; index++)
+                {
+                    var item = comboBoxLanguage.Items[index];
+                    if (item.ToString() == value)
+                        comboBoxLanguage.SelectedIndex = index;
+                }
             }
         }
 
@@ -473,7 +483,7 @@ namespace Nikse.SubtitleEdit.Forms
             if (textSize.Height > buttonCancel.Height - 4)
             {
                 subtitleListView1.InitializeTimestampColumnWidths(this);
-                int newButtonHeight = (int)(textSize.Height + 7 + 0.5);
+                var newButtonHeight = (int)(textSize.Height + 7 + 0.5);
                 Utilities.SetButtonHeight(this, newButtonHeight, 1);
             }
         }
@@ -628,16 +638,16 @@ namespace Nikse.SubtitleEdit.Forms
             int noOfOverlappingDisplayTimesFixed = 0;
             for (int i = 0; i < Subtitle.Paragraphs.Count; i++)
             {
-                Paragraph p = Subtitle.Paragraphs[i];
-                Paragraph oldP = new Paragraph(p);
+                var p = Subtitle.Paragraphs[i];
+                var oldP = new Paragraph(p);
                 if (p.Duration.TotalMilliseconds < 0) // negative display time...
                 {
                     bool isFixed = false;
                     string status = string.Format(_language.StartTimeLaterThanEndTime,
                                                     i + 1, p.StartTime, p.EndTime, p.Text, Environment.NewLine);
 
-                    Paragraph prev = Subtitle.GetParagraphOrDefault(i - 1);
-                    Paragraph next = Subtitle.GetParagraphOrDefault(i + 1);
+                    var prev = Subtitle.GetParagraphOrDefault(i - 1);
+                    var next = Subtitle.GetParagraphOrDefault(i + 1);
 
                     double wantedDisplayTime = Utilities.GetOptimalDisplayMilliseconds(p.Text) * 0.9;
 
@@ -1013,7 +1023,6 @@ namespace Nikse.SubtitleEdit.Forms
                         _totalErrors++;
                     }
                 }
-                skip = false;
             }
             if (noOfShortDisplayTimes > 0)
                 LogStatus(fixAction, string.Format(_language.XDisplayTimesProlonged, noOfShortDisplayTimes));
@@ -1334,6 +1343,7 @@ namespace Nikse.SubtitleEdit.Forms
 
         public void FixMissingSpaces()
         {
+            string languageCode = Language;
             string fixAction = _language.FixMissingSpace;
             int missingSpaces = 0;
             for (int i = 0; i < Subtitle.Paragraphs.Count; i++)
@@ -1346,17 +1356,19 @@ namespace Nikse.SubtitleEdit.Forms
                 {
                     while (match.Success)
                     {
-                        if (!@"""”<.".Contains(p.Text[match.Index + 2]))
-                        {
-                            if (AllowFix(p, fixAction))
-                            {
-                                _totalFixes++;
-                                missingSpaces++;
+                        bool doFix = !@"""”<.".Contains(p.Text[match.Index + 2]);
 
-                                string oldText = p.Text;
-                                p.Text = p.Text.Replace(match.Value, match.Value[0] + ", " + match.Value[match.Value.Length - 1]);
-                                AddFixToListView(p, fixAction, oldText, p.Text);
-                            }
+                        if (doFix && languageCode == "el" && (p.Text.Substring(match.Index).StartsWith("ό,τι") || p.Text.Substring(match.Index).StartsWith("ο,τι")))
+                            doFix = false;
+
+                        if (doFix && AllowFix(p, fixAction))
+                        {
+                            _totalFixes++;
+                            missingSpaces++;
+
+                            string oldText = p.Text;
+                            p.Text = p.Text.Replace(match.Value, match.Value[0] + ", " + match.Value[match.Value.Length - 1]);
+                            AddFixToListView(p, fixAction, oldText, p.Text);
                         }
                         match = match.NextMatch();
                     }
@@ -2066,9 +2078,9 @@ namespace Nikse.SubtitleEdit.Forms
                                         string oldText = p.Text;
                                         if (p.Text.EndsWith('>'))
                                         {
-                                            int lastLT = p.Text.LastIndexOf('<');
-                                            if (lastLT > 0)
-                                                p.Text = p.Text.Insert(lastLT, ".");
+                                            int lastLessThan = p.Text.LastIndexOf('<');
+                                            if (lastLessThan > 0)
+                                                p.Text = p.Text.Insert(lastLessThan, ".");
                                         }
                                         else
                                         {
@@ -2227,8 +2239,9 @@ namespace Nikse.SubtitleEdit.Forms
                 string oldText = p.Text;
                 string fixedText = FixStartWithUppercaseLetterAfterParagraph(p, prev, _encoding, Language);
 
-                if (oldText != p.Text)
+                if (oldText != fixedText)
                 {
+                    p.Text = fixedText;
                     if (AllowFix(p, fixAction))
                     {
                         _totalFixes++;
@@ -2243,7 +2256,7 @@ namespace Nikse.SubtitleEdit.Forms
             }
             listViewFixes.EndUpdate();
             if (fixedStartWithUppercaseLetterAfterParagraphTicked > 0)
-                LogStatus(_language.StartWithUppercaseLetterAfterParagraph, fixedStartWithUppercaseLetterAfterParagraphTicked.ToString());
+                LogStatus(_language.StartWithUppercaseLetterAfterParagraph, fixedStartWithUppercaseLetterAfterParagraphTicked.ToString(CultureInfo.InvariantCulture));
         }
 
         public static string FixStartWithUppercaseLetterAfterParagraph(Paragraph p, Paragraph prev, Encoding encoding, string language)
@@ -2780,68 +2793,12 @@ namespace Nikse.SubtitleEdit.Forms
         {
             string fixAction = _language.FixDialogsOnOneLine;
             int noOfFixes = 0;
+            string language = Language;
             for (int i = 0; i < Subtitle.Paragraphs.Count; i++)
             {
                 Paragraph p = Subtitle.Paragraphs[i];
-                string text = p.Text;
-                string oldText = text;
-                if (text.Contains(" - ") && !text.Contains(Environment.NewLine))
-                {
-                    string[] parts = text.Replace(" - ", Environment.NewLine).Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length == 2)
-                    {
-                        string part0 = Utilities.RemoveHtmlTags(parts[0]).Trim();
-                        string part1 = Utilities.RemoveHtmlTags(parts[1]).Trim();
-                        if (part0.Length > 1 && @"!?.".Contains(part0[part0.Length - 1]) &&
-                            part1.Length > 1 && ("'" + Utilities.UppercaseLetters).Contains(part1[0]))
-                        {
-                            text = text.Replace(" - ", Environment.NewLine + "- ");
-                            if (Utilities.AllLettersAndNumbers.Contains(part0[0]))
-                            {
-                                if (text.StartsWith("<i>"))
-                                    text = "<i>- " + text;
-                                else
-                                    text = "- " + text;
-                            }
-                        }
-                    }
-                }
-
-                if ((text.Contains(". -") || text.Contains("! -") || text.Contains("? -")) && Utilities.CountTagInText(text, Environment.NewLine) == 1)
-                {
-                    string temp = Utilities.AutoBreakLine(text, Language);
-                    var arr = text.Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries);
-                    var arrTemp = temp.Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries);
-                    if (arr.Length == 2 && arrTemp.Length == 2 && !arr[1].TrimStart().StartsWith('-') && arrTemp[1].TrimStart().StartsWith('-'))
-                        text = temp;
-                    else if (arr.Length == 2 && arrTemp.Length == 2 && !arr[1].TrimStart().StartsWith("<i>-") && arrTemp[1].TrimStart().StartsWith("<i>-"))
-                        text = temp;
-                }
-                else if ((text.Contains(". -") || text.Contains("! -") || text.Contains("? -")) && !text.Contains(Environment.NewLine))
-                {
-                    string temp = Utilities.AutoBreakLine(text, Language);
-                    var arrTemp = temp.Split(Utilities.NewLineChars, StringSplitOptions.RemoveEmptyEntries);
-                    if (arrTemp.Length == 2)
-                    {
-                        if (arrTemp[1].TrimStart().StartsWith('-') || arrTemp[1].TrimStart().StartsWith("<i>-"))
-                            text = temp;
-                    }
-                    else
-                    {
-                        int index = text.IndexOf(". -", StringComparison.Ordinal);
-                        if (index < 0)
-                            index = text.IndexOf("! -", StringComparison.Ordinal);
-                        if (index < 0)
-                            index = text.IndexOf("? -", StringComparison.Ordinal);
-                        if (index > 0)
-                        {
-                            text = text.Remove(index + 1, 1).Insert(index + 1, Environment.NewLine);
-                            text = text.Replace(Environment.NewLine + " ", Environment.NewLine);
-                            text = text.Replace(" " + Environment.NewLine, Environment.NewLine);
-                        }
-                    }
-                }
-
+                string oldText = p.Text;
+                var text = FixCommonErrorsHelper.FixDialogsOnOneLine(oldText, language);
                 if (oldText != text)
                 {
                     if (AllowFix(p, fixAction))
@@ -2855,7 +2812,7 @@ namespace Nikse.SubtitleEdit.Forms
 
             }
             if (noOfFixes > 0)
-                LogStatus(_language.FixCommonOcrErrors, string.Format(_language.RemoveSpaceBetweenNumbersFixed, noOfFixes));
+                LogStatus(_language.FixCommonOcrErrors, string.Format(_language.FixDialogsOnOneLine, noOfFixes));
         }
 
         private void TurkishAnsiToUnicode()
@@ -3047,16 +3004,16 @@ namespace Nikse.SubtitleEdit.Forms
                                 }
                                 else
                                 {
-                                    int idxNL = text.IndexOf(Environment.NewLine, StringComparison.Ordinal);
-                                    if (idxNL > 0)
+                                    int indexOfNewLine = text.IndexOf(Environment.NewLine, StringComparison.Ordinal);
+                                    if (indexOfNewLine > 0)
                                     {
-                                        idx = text.IndexOf('-', idxNL);
-                                        if (idx >= 0 && idxNL + 5 > idxNL)
+                                        idx = text.IndexOf('-', indexOfNewLine);
+                                        if (idx >= 0 && indexOfNewLine + 5 > indexOfNewLine)
                                         {
                                             text = text.Remove(idx, 1).TrimStart().Replace(Environment.NewLine + " ", Environment.NewLine);
 
-                                            idx = text.IndexOf('-', idxNL);
-                                            if (idx >= 0 && idxNL + 5 > idxNL)
+                                            idx = text.IndexOf('-', indexOfNewLine);
+                                            if (idx >= 0 && indexOfNewLine + 5 > indexOfNewLine)
                                             {
                                                 text = text.Remove(idx, 1).TrimStart();
 
@@ -3468,7 +3425,7 @@ namespace Nikse.SubtitleEdit.Forms
             int fixCount = 0;
             for (int i = 0; i < Subtitle.Paragraphs.Count; i++)
             {
-                Paragraph p = Subtitle.Paragraphs[i];
+                var p = Subtitle.Paragraphs[i];
 
                 if (AllowFix(p, fixAction))
                 {
@@ -4112,13 +4069,13 @@ namespace Nikse.SubtitleEdit.Forms
 
                              };
 
-            Regex regExIDag = new Regex(@"\bidag\b", RegexOptions.Compiled);
-            Regex regExIGaar = new Regex(@"\bigår\b", RegexOptions.Compiled);
-            Regex regExIMorgen = new Regex(@"\bimorgen\b", RegexOptions.Compiled);
-            Regex regExIAlt = new Regex(@"\bialt\b", RegexOptions.Compiled);
-            Regex regExIGang = new Regex(@"\bigang\b", RegexOptions.Compiled);
-            Regex regExIStand = new Regex(@"\bistand\b", RegexOptions.Compiled);
-            Regex regExIOevrigt = new Regex(@"\biøvrigt\b", RegexOptions.Compiled);
+            var regExIDag = new Regex(@"\bidag\b", RegexOptions.Compiled);
+            var regExIGaar = new Regex(@"\bigår\b", RegexOptions.Compiled);
+            var regExIMorgen = new Regex(@"\bimorgen\b", RegexOptions.Compiled);
+            var regExIAlt = new Regex(@"\bialt\b", RegexOptions.Compiled);
+            var regExIGang = new Regex(@"\bigang\b", RegexOptions.Compiled);
+            var regExIStand = new Regex(@"\bistand\b", RegexOptions.Compiled);
+            var regExIOevrigt = new Regex(@"\biøvrigt\b", RegexOptions.Compiled);
 
             for (int i = 0; i < Subtitle.Paragraphs.Count; i++)
             {
@@ -4127,12 +4084,12 @@ namespace Nikse.SubtitleEdit.Forms
 
                 if (littleIRegex.IsMatch(text))
                 {
-                    foreach (Regex regex in iList)
+                    foreach (var regex in iList)
                     {
-                        Match match = regex.Match(text);
+                        var match = regex.Match(text);
                         while (match.Success)
                         {
-                            Match iMatch = littleIRegex.Match(match.Value);
+                            var iMatch = littleIRegex.Match(match.Value);
                             if (iMatch.Success)
                             {
                                 string temp = match.Value.Remove(iMatch.Index, 1).Insert(iMatch.Index, "I");
@@ -4680,7 +4637,6 @@ namespace Nikse.SubtitleEdit.Forms
                         before[before.Length - (i + 3)] == after[after.Length - (i + 3)] &&
                         before[before.Length - (i + 4)] == after[after.Length - (i + 4)])
                     {
-                        continue;
                     }
                     else
                     {
@@ -4800,7 +4756,7 @@ namespace Nikse.SubtitleEdit.Forms
 
         private void ListViewFixesColumnClick(object sender, ColumnClickEventArgs e)
         {
-            ListViewSorter sorter = (ListViewSorter)listViewFixes.ListViewItemSorter;
+            var sorter = (ListViewSorter)listViewFixes.ListViewItemSorter;
 
             if (e.Column == sorter.ColumnNumber)
             {
@@ -4835,8 +4791,8 @@ namespace Nikse.SubtitleEdit.Forms
 
                 foreach (ListViewItem lvi in subtitleListView1.Items)
                 {
-                    Paragraph p2 = lvi.Tag as Paragraph;
-                    if (p.ID == p2.ID)
+                    var p2 = lvi.Tag as Paragraph;
+                    if (p2 != null && p.ID == p2.ID)
                     {
                         var index = lvi.Index;
                         if (index - 1 > 0)
@@ -5227,7 +5183,7 @@ namespace Nikse.SubtitleEdit.Forms
                 int firstSelectedIndex = subtitleListView1.SelectedItems[0].Index;
 
                 // save de-seleced fixes
-                List<string> deSelectedFixes = new List<string>();
+                var deSelectedFixes = new List<string>();
                 foreach (ListViewItem item in listViewFixes.Items)
                 {
                     if (!item.Checked)
@@ -5240,8 +5196,8 @@ namespace Nikse.SubtitleEdit.Forms
                     }
                 }
 
-                Paragraph currentParagraph = _originalSubtitle.GetParagraphOrDefault(firstSelectedIndex);
-                Paragraph nextParagraph = _originalSubtitle.GetParagraphOrDefault(firstSelectedIndex + 1);
+                var currentParagraph = _originalSubtitle.GetParagraphOrDefault(firstSelectedIndex);
+                var nextParagraph = _originalSubtitle.GetParagraphOrDefault(firstSelectedIndex + 1);
 
                 if (nextParagraph != null && currentParagraph != null)
                 {
@@ -5314,7 +5270,7 @@ namespace Nikse.SubtitleEdit.Forms
             Graphics graphics = CreateGraphics();
 
             SizeF timestampSizeF = graphics.MeasureString(listViewFixes.Columns[0].Text, Font); // Apply
-            int width = (int)(timestampSizeF.Width + 12);
+            var width = (int)(timestampSizeF.Width + 12);
             listViewFixes.Columns[0].Width = width;
 
             timestampSizeF = graphics.MeasureString(listViewFixes.Columns[1].Text, Font); // line#
