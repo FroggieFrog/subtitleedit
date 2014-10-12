@@ -161,7 +161,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         AnalyzeMatroskaSegmentInformation(afterPosition);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks();
+                        AnalyzeMatroskaTracks(afterPosition);
                         break;
                     case ElementId.Segment:
                         continue;
@@ -197,10 +197,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         AnalyzeMatroskaSegmentInformation(afterPosition);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks();
+                        AnalyzeMatroskaTracks(afterPosition);
                         break;
                     case ElementId.Cluster:
-                        return FindTrackStartInCluster(trackNumber);
+                        return FindTrackStartInCluster(afterPosition, trackNumber);
                     case ElementId.Segment:
                         continue;
                 }
@@ -210,13 +210,13 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             return 0;
         }
 
-        private long FindTrackStartInCluster(int targetTrackNumber)
+        private long FindTrackStartInCluster(long endPosition, int targetTrackNumber)
         {
             long clusterTimeCode = 0;
             int trackStartTime = -1;
 
             ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
+            while (_stream.Position < endPosition && (elementId = ReadEbmlId()) != 0)
             {
                 var elementSize = (long)ReadVariableLengthUInt();
                 var afterPosition = _stream.Position + elementSize;
@@ -235,7 +235,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         {
                             // Timecode (relative to Cluster timecode, signed int16)
                             trackStartTime = ReadInt16();
-                            _stream.Position = _streamLength; // break while
                         }
                         break;
                 }
@@ -279,7 +278,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private void AnalyzeMatroskaTrackEntry()
+        private void AnalyzeMatroskaTrackEntry(long endPosition)
         {
             long defaultDuration = 0;
             bool isVideo = false;
@@ -295,7 +294,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             int contentEncodingType = -1;
 
             ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
+            while (_stream.Position < endPosition && (elementId = ReadEbmlId()) != 0)
             {
                 var elementSize = (long)ReadVariableLengthUInt();
                 var afterPosition = _stream.Position + elementSize;
@@ -460,18 +459,18 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 _durationInMilliseconds = duration;
         }
 
-        private void AnalyzeMatroskaTracks()
+        private void AnalyzeMatroskaTracks(long endPosition)
         {
             _subtitleList = new List<MatroskaSubtitleInfo>();
 
             ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
+            while (_stream.Position < endPosition && (elementId = ReadEbmlId()) != 0)
             {
                 var elementSize = (long)ReadVariableLengthUInt();
                 var afterPosition = _stream.Position + elementSize;
                 if (elementId == ElementId.TrackEntry)
                 {
-                    AnalyzeMatroskaTrackEntry();
+                    AnalyzeMatroskaTrackEntry(afterPosition);
                 }
                 _stream.Seek(afterPosition, SeekOrigin.Begin);
             }
@@ -497,10 +496,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         AnalyzeMatroskaSegmentInformation(afterPosition);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks();
+                        AnalyzeMatroskaTracks(afterPosition);
                         break;
                     case ElementId.Cluster:
-                        AnalyzeMatroskaCluster();
+                        AnalyzeMatroskaCluster(afterPosition);
                         break;
                     case ElementId.Segment:
                         continue;
@@ -516,13 +515,13 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             videoCodec = _videoCodecId;
         }
 
-        private void AnalyzeMatroskaCluster()
+        private void AnalyzeMatroskaCluster(long endPosition)
         {
             long clusterTimeCode = 0;
             const long duration = 0;
 
             ElementId elementId;
-            while (_stream.Position < _streamLength && (elementId = ReadEbmlId()) != 0)
+            while (_stream.Position < endPosition && (elementId = ReadEbmlId()) != 0)
             {
                 var elementSize = (long)ReadVariableLengthUInt();
                 var afterPosition = _stream.Position + elementSize;
@@ -662,7 +661,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         AnalyzeMatroskaSegmentInformation(afterPosition);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks();
+                        AnalyzeMatroskaTracks(afterPosition);
                         break;
                     case ElementId.Segment:
                         continue;
@@ -693,10 +692,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         AnalyzeMatroskaSegmentInformation(afterPosition);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks();
+                        AnalyzeMatroskaTracks(afterPosition);
                         break;
                     case ElementId.Cluster:
-                        AnalyzeMatroskaCluster();
+                        AnalyzeMatroskaCluster(afterPosition);
                         break;
                     case ElementId.Segment:
                         continue;
