@@ -739,19 +739,11 @@ namespace Nikse.SubtitleEdit.Forms
 
                         if (Path.GetExtension(fileName).Equals(".mkv", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(fileName).Equals(".mks", StringComparison.OrdinalIgnoreCase))
                         {
-                            using (var mkv = new Matroska(fileName))
+                            using (var matroska = new Matroska(fileName))
                             {
-                                if (mkv.IsValid)
+                                if (matroska.IsValid)
                                 {
-                                    bool hasConstantFrameRate;
-                                    double frameRate;
-                                    int width;
-                                    int height;
-                                    double milliseconds;
-                                    string videoCodec;
-                                    mkv.GetMatroskaInfo(out hasConstantFrameRate, out frameRate, out width, out height, out milliseconds, out videoCodec);
-
-                                    var subtitleList = mkv.GetMatroskaSubtitleTracks();
+                                    var subtitleList = matroska.GetMatroskaSubtitleTracks();
                                     if (subtitleList.Count > 0)
                                     {
                                         foreach (MatroskaSubtitleInfo x in subtitleList)
@@ -766,7 +758,7 @@ namespace Nikse.SubtitleEdit.Forms
                                             }
                                             else
                                             {
-                                                LoadMatroskaSubtitle(x, mkv, true);
+                                                LoadMatroskaSubtitle(x, matroska, true);
                                                 sub = _subtitle;
                                                 format = GetCurrentSubtitleFormat();
                                                 string newFileName = fileName;
@@ -2276,19 +2268,11 @@ namespace Nikse.SubtitleEdit.Forms
 
                 if (ext == ".mkv" || ext == ".mks")
                 {
-                    using (var mkv = new Matroska(fileName))
+                    using (var matroska = new Matroska(fileName))
                     {
-                        if (mkv.IsValid)
+                        if (matroska.IsValid)
                         {
-                            bool hasConstantFrameRate;
-                            double frameRate;
-                            int width;
-                            int height;
-                            double milliseconds;
-                            string videoCodec;
-                            mkv.GetMatroskaInfo(out hasConstantFrameRate, out frameRate, out width, out height, out milliseconds, out videoCodec);
-
-                            ImportSubtitleFromMatroskaFile(mkv);
+                            ImportSubtitleFromMatroskaFile(matroska);
                             return;
                         }
                     }
@@ -9071,7 +9055,7 @@ namespace Nikse.SubtitleEdit.Forms
                 Application.DoEvents();
         }
 
-        internal Subtitle LoadMatroskaSubtitleForSync(MatroskaSubtitleInfo matroskaSubtitleInfo, string fileName)
+        internal Subtitle LoadMatroskaSubtitleForSync(MatroskaSubtitleInfo matroskaSubtitleInfo, Matroska matroska)
         {
             Subtitle subtitle = new Subtitle();
 
@@ -9084,42 +9068,34 @@ namespace Nikse.SubtitleEdit.Forms
                 return subtitle;
             }
 
-            using (var matroska = new Matroska(fileName))
+            var isSsa = false;
+            SubtitleFormat format;
+            if (matroskaSubtitleInfo.CodecPrivate.Contains("[script info]", StringComparison.OrdinalIgnoreCase))
             {
-                if (!matroska.IsValid)
-                {
-                    return subtitle;
-                }
-
-                var isSsa = false;
-                SubtitleFormat format;
-                if (matroskaSubtitleInfo.CodecPrivate.Contains("[script info]", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (matroskaSubtitleInfo.CodecPrivate.Contains("[V4 Styles]", StringComparison.OrdinalIgnoreCase))
-                        format = new SubStationAlpha();
-                    else
-                        format = new AdvancedSubStationAlpha();
-                    isSsa = true;
-                }
+                if (matroskaSubtitleInfo.CodecPrivate.Contains("[V4 Styles]", StringComparison.OrdinalIgnoreCase))
+                    format = new SubStationAlpha();
                 else
-                {
-                    format = new SubRip();
-                }
+                    format = new AdvancedSubStationAlpha();
+                isSsa = true;
+            }
+            else
+            {
+                format = new SubRip();
+            }
 
-                var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
-                if (isSsa)
+            var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
+            if (isSsa)
+            {
+                foreach (var p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.FileName, format, sub).Paragraphs)
                 {
-                    foreach (Paragraph p in LoadMatroskaSSA(matroskaSubtitleInfo, fileName, format, sub).Paragraphs)
-                    {
-                        subtitle.Paragraphs.Add(p);
-                    }
+                    subtitle.Paragraphs.Add(p);
                 }
-                else
+            }
+            else
+            {
+                foreach (SubtitleSequence p in sub)
                 {
-                    foreach (SubtitleSequence p in sub)
-                    {
-                        subtitle.Paragraphs.Add(new Paragraph(p.Text, p.StartMilliseconds, p.EndMilliseconds));
-                    }
+                    subtitle.Paragraphs.Add(new Paragraph(p.Text, p.StartMilliseconds, p.EndMilliseconds));
                 }
             }
             return subtitle;
@@ -12667,19 +12643,11 @@ namespace Nikse.SubtitleEdit.Forms
 
                     if (Path.GetExtension(fileName).Equals(".mkv", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(fileName).Equals(".mks", StringComparison.OrdinalIgnoreCase))
                     {
-                        using (var mkv = new Matroska(fileName))
+                        using (var matroska = new Matroska(fileName))
                         {
-                            if (mkv.IsValid)
+                            if (matroska.IsValid)
                             {
-                                bool hasConstantFrameRate;
-                                double frameRate;
-                                int width;
-                                int height;
-                                double milliseconds;
-                                string videoCodec;
-                                mkv.GetMatroskaInfo(out hasConstantFrameRate, out frameRate, out width, out height, out milliseconds, out videoCodec);
-
-                                var subtitleList = mkv.GetMatroskaSubtitleTracks();
+                                var subtitleList = matroska.GetMatroskaSubtitleTracks();
                                 if (subtitleList.Count == 0)
                                 {
                                     MessageBox.Show(_language.NoSubtitlesFound);
@@ -12698,12 +12666,12 @@ namespace Nikse.SubtitleEdit.Forms
                                     }
                                     if (subtitleChooser.ShowDialog(this) == DialogResult.OK)
                                     {
-                                        sub = LoadMatroskaSubtitleForSync(subtitleList[subtitleChooser.SelectedIndex], fileName);
+                                        sub = LoadMatroskaSubtitleForSync(subtitleList[subtitleChooser.SelectedIndex], matroska);
                                     }
                                 }
                                 else
                                 {
-                                    sub = LoadMatroskaSubtitleForSync(subtitleList[0], fileName);
+                                    sub = LoadMatroskaSubtitleForSync(subtitleList[0], matroska);
                                 }
                             }
                         }

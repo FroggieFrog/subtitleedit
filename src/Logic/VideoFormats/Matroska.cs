@@ -402,16 +402,13 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        public void GetMatroskaInfo(out bool hasConstantFrameRate, out double frameRate, out int pixelWidth, out int pixelHeight, out double millisecondDuration, out string videoCodec)
+        public void GetMatroskaInfo(out double frameRate, out int pixelWidth, out int pixelHeight, out double millisecondDuration, out string videoCodec)
         {
-            _durationInMilliseconds = 0;
-
             ReadFile(true, null);
 
             pixelWidth = _pixelWidth;
             pixelHeight = _pixelHeight;
             frameRate = _frameRate;
-            hasConstantFrameRate = _frameRate > 0;
             millisecondDuration = _durationInMilliseconds;
             videoCodec = _videoCodecId;
         }

@@ -58,19 +58,18 @@ namespace Nikse.SubtitleEdit.Logic
         {
             var info = new VideoInfo { Success = false };
 
-            Matroska matroskaParser = null;
+            Matroska matroska = null;
             try
             {
-                matroskaParser = new Matroska(fileName);
-                if (matroskaParser.IsValid)
+                matroska = new Matroska(fileName);
+                if (matroska.IsValid)
                 {
-                    bool hasConstantFrameRate;
                     double frameRate;
                     int width;
                     int height;
                     double milliseconds;
                     string videoCodec;
-                    matroskaParser.GetMatroskaInfo(out hasConstantFrameRate, out frameRate, out width, out height, out milliseconds, out videoCodec);
+                    matroska.GetMatroskaInfo(out frameRate, out width, out height, out milliseconds, out videoCodec);
 
                     info.Width = width;
                     info.Height = height;
@@ -82,17 +81,18 @@ namespace Nikse.SubtitleEdit.Logic
                     info.VideoCodec = videoCodec;
                 }
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                MessageBox.Show(exception.Message);
+                MessageBox.Show(ex.Message);
             }
             finally
             {
-                if (matroskaParser != null)
+                if (matroska != null)
                 {
-                    matroskaParser.Dispose();
+                    matroska.Dispose();
                 }
             }
+
             return info;
         }
 

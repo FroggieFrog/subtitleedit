@@ -244,13 +244,13 @@ namespace Nikse.SubtitleEdit.Forms
             {
                 if (labelVideoFileName.Text.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase))
                 { // Choose for number of audio tracks in matroska files
-                    Matroska mkv = null;
+                    Matroska matroska = null;
                     try
                     {
-                        mkv = new Matroska(labelVideoFileName.Text);
-                        if (mkv.IsValid)
+                        matroska = new Matroska(labelVideoFileName.Text);
+                        if (matroska.IsValid)
                         {
-                            var trackInfo = mkv.GetTrackInfo();
+                            var trackInfo = matroska.GetTrackInfo();
                             foreach (var ti in trackInfo)
                             {
                                 if (ti.IsAudio)
@@ -270,9 +270,9 @@ namespace Nikse.SubtitleEdit.Forms
                     }
                     finally
                     {
-                        if (mkv != null)
+                        if (matroska != null)
                         {
-                            mkv.Dispose();
+                            matroska.Dispose();
                         }
                     }
                 }
@@ -326,13 +326,13 @@ namespace Nikse.SubtitleEdit.Forms
                 // check for delay in matroska files
                 if (labelVideoFileName.Text.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase))
                 {
-                    Matroska mkv = null;
+                    Matroska matroska = null;
                     try
                     {
-                        mkv = new Matroska(labelVideoFileName.Text);
-                        if (mkv.IsValid)
+                        matroska = new Matroska(labelVideoFileName.Text);
+                        if (matroska.IsValid)
                         {
-                            _delayInMilliseconds = (int)mkv.GetTrackStartTime(mkvAudioTrackNumbers[_audioTrackNumber]);
+                            _delayInMilliseconds = (int)matroska.GetTrackStartTime(mkvAudioTrackNumbers[_audioTrackNumber]);
                         }
                     }
                     catch
@@ -341,9 +341,9 @@ namespace Nikse.SubtitleEdit.Forms
                     }
                     finally
                     {
-                        if (mkv != null)
+                        if (matroska != null)
                         {
-                            mkv.Dispose();
+                            matroska.Dispose();
                         }
                     }
                 }
