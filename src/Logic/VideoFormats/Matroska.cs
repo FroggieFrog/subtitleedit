@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace Nikse.SubtitleEdit.Logic.VideoFormats
 {
@@ -199,20 +200,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private string GetMatroskaString(long size)
-        {
-            try
-            {
-                byte[] buffer = new byte[size];
-                _stream.Read(buffer, 0, (int)size);
-                return System.Text.Encoding.UTF8.GetString(buffer);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
         private void AnalyzeMatroskaTrackEntry(Element trackEntryElement)
         {
             long defaultDuration = 0;
@@ -247,13 +234,13 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         trackNumber = (long)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.Name:
-                        name = GetMatroskaString(element.DataSize);
+                        name = ReadString((int)element.DataSize, Encoding.UTF8);
                         break;
                     case ElementId.Language:
-                        language = GetMatroskaString(element.DataSize);
+                        language = ReadString((int)element.DataSize, Encoding.ASCII);
                         break;
                     case ElementId.CodecId:
-                        codecId = GetMatroskaString(element.DataSize);
+                        codecId = ReadString((int)element.DataSize, Encoding.ASCII);
                         break;
                     case ElementId.TrackType:
                         if (element.DataSize == 1)
@@ -268,7 +255,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         }
                         break;
                     case ElementId.CodecPrivate:
-                        codecPrivate = GetMatroskaString(element.DataSize);
+                        codecPrivate = ReadString((int)element.DataSize, Encoding.UTF8);
                         //if (codecPrivate.Length > 20)
                         //    biCompression = codecPrivate.Substring(16, 4);
                         break;
@@ -721,6 +708,19 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             _stream.Read(data, 0, 8);
             var result = (long)(data[0] << 56 | data[1] << 48 | data[2] << 40 | data[3] << 32 | data[4] << 24 | data[5] << 16 | data[6] << 8 | data[7]);
             return *(double*)&result;
+        }
+
+        /// <summary>
+        /// Reads a fixed length string from the current stream using the specified encoding.
+        /// </summary>
+        /// <param name="length">The length in bytes of the string.</param>
+        /// <param name="encoding">The encoding of the string.</param>
+        /// <returns>The string being read.</returns>
+        private string ReadString(int length, Encoding encoding)
+        {
+            var buffer = new byte[length];
+            _stream.Read(buffer, 0, length);
+            return encoding.GetString(buffer);
         }
 
         /// <summary>
