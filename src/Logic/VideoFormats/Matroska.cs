@@ -243,15 +243,17 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         codecId = ReadString((int)element.DataSize, Encoding.ASCII);
                         break;
                     case ElementId.TrackType:
-                        if (element.DataSize == 1)
+                        switch (_stream.ReadByte())
                         {
-                            var trackType = (byte)_stream.ReadByte();
-                            if (trackType == 0x11) // subtitle
-                                isSubtitle = true;
-                            if (trackType == 1)
+                            case 1:
                                 isVideo = true;
-                            if (trackType == 2)
+                                break;
+                            case 2:
                                 isAudio = true;
+                                break;
+                            case 17:
+                                isSubtitle = true;
+                                break;
                         }
                         break;
                     case ElementId.CodecPrivate:
