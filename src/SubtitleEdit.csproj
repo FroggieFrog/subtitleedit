@@ -1143,6 +1143,8 @@
     <Compile Include="Logic\UknownFormatImporter.cs" />
     <Compile Include="Logic\Utilities.cs" />
     <Compile Include="Logic\VideoFormats\AviRiffData.cs" />
+    <Compile Include="Logic\VideoFormats\Ebml\Element.cs" />
+    <Compile Include="Logic\VideoFormats\Ebml\ElementId.cs" />
     <Compile Include="Logic\VideoFormats\Matroska.cs" />
     <Compile Include="Logic\VideoFormats\RiffDecodeHeader.cs" />
     <Compile Include="Logic\VideoFormats\RiffParser.cs" />
