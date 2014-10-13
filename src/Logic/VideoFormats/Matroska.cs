@@ -30,13 +30,9 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         }
     }
 
-    public class MatroskaSubtitleInfo
+    public class MatroskaSubtitleInfo : MatroskaTrackInfo
     {
-        public long TrackNumber { get; set; }
         public string Name { get; set; }
-        public string Language { get; set; }
-        public string CodecId { get; set; }
-        public string CodecPrivate { get; set; }
         public int ContentCompressionAlgorithm { get; set; }
         public int ContentEncodingType { get; set; }
     }
@@ -67,7 +63,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private string _videoCodecId;
         private double _durationInMilliseconds;
 
-        private List<MatroskaSubtitleInfo> _subtitleList;
+        private List<MatroskaSubtitleInfo> _subtitleTracks;
         private int _subtitleRipTrackNumber;
         private List<SubtitleSequence> _subtitleRip = new List<SubtitleSequence>();
         private long _timecodeScale = 1000000; // Timestamp scale in nanoseconds (1.000.000 means all timestamps in the segment are expressed in milliseconds).
@@ -206,7 +202,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             bool isVideo = false;
             bool isAudio = false;
             bool isSubtitle = false;
-            long trackNumber = 0;
+            var trackNumber = 0;
             string name = string.Empty;
             string language = string.Empty;
             string codecId = string.Empty;
@@ -231,7 +227,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         isAudio = true;
                         break;
                     case ElementId.TrackNumber:
-                        trackNumber = (long)ReadUInt((int)element.DataSize);
+                        trackNumber = (int)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.Name:
                         name = ReadString((int)element.DataSize, Encoding.UTF8);
@@ -274,17 +270,17 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 }
                 _stream.Seek(element.EndPosition, SeekOrigin.Begin);
             }
-            
-            _tracks.Add(new MatroskaTrackInfo
-            {
-                TrackNumber = (int)trackNumber,
-                IsVideo = isVideo,
-                IsAudio = isAudio,
-                IsSubtitle = isSubtitle,
-                Language = language,
-                CodecId = codecId,
-                CodecPrivate = codecPrivate,
-            });
+
+            var track = isSubtitle ? new MatroskaSubtitleInfo() : new MatroskaTrackInfo();
+            track.TrackNumber = trackNumber;
+            track.IsVideo = isVideo;
+            track.IsAudio = isAudio;
+            track.IsSubtitle = isSubtitle;
+            track.Language = language;
+            track.CodecId = codecId;
+            track.CodecPrivate = codecPrivate;
+            _tracks.Add(track);
+
             if (isVideo)
             {
                 if (defaultDuration > 0)
@@ -293,16 +289,11 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
             else if (isSubtitle)
             {
-                _subtitleList.Add(new MatroskaSubtitleInfo
-                {
-                    Name = name,
-                    TrackNumber = trackNumber,
-                    CodecId = codecId,
-                    Language = language,
-                    CodecPrivate = codecPrivate,
-                    ContentEncodingType = contentEncodingType,
-                    ContentCompressionAlgorithm = contentCompressionAlgorithm
-                });
+                var subtitleTrack = track as MatroskaSubtitleInfo;
+                subtitleTrack.Name = name;
+                subtitleTrack.ContentEncodingType = contentEncodingType;
+                subtitleTrack.ContentCompressionAlgorithm = contentCompressionAlgorithm;
+                _subtitleTracks.Add(subtitleTrack);
             }
         }
 
@@ -375,7 +366,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private void AnalyzeMatroskaTracks(Element tracksElement)
         {
             _tracks = new List<MatroskaTrackInfo>();
-            _subtitleList = new List<MatroskaSubtitleInfo>();
+            _subtitleTracks = new List<MatroskaSubtitleInfo>();
 
             Element element;
             while (_stream.Position < tracksElement.EndPosition && (element = ReadElement()) != null)
@@ -526,7 +517,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         public List<MatroskaSubtitleInfo> GetMatroskaSubtitleTracks()
         {
             ReadFile(true, null);
-            return _subtitleList;
+            return _subtitleTracks;
         }
 
         public List<SubtitleSequence> GetMatroskaSubtitle(int trackNumber, LoadMatroskaCallback callback)
