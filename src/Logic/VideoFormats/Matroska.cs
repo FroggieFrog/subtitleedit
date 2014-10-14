@@ -69,7 +69,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private long _timecodeScale = 1000000; // Timestamp scale in nanoseconds (1.000.000 means all timestamps in the segment are expressed in milliseconds).
         private List<MatroskaTrackInfo> _tracks;
 
-        private readonly Element _headerElement;
         private readonly Element _segmentElement;
 
         public Matroska(string fileName)
@@ -79,11 +78,11 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             _streamLength = _stream.Length;
 
             // read header
-            _headerElement = ReadElement();
-            if (_headerElement != null && _headerElement.Id == ElementId.Ebml)
+            var headerElement = ReadElement();
+            if (headerElement != null && headerElement.Id == ElementId.Ebml)
             {
                 // read segment
-                _stream.Seek(_headerElement.DataSize, SeekOrigin.Current);
+                _stream.Seek(headerElement.DataSize, SeekOrigin.Current);
                 _segmentElement = ReadElement();
                 if (_segmentElement != null && _segmentElement.Id == ElementId.Segment)
                 {
