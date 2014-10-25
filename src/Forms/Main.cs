@@ -9083,7 +9083,7 @@ namespace Nikse.SubtitleEdit.Forms
                 format = new SubRip();
             }
 
-            var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
+            var sub = matroska.GetMatroskaSubtitle(matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
             if (isSsa)
             {
                 foreach (var p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.FileName, format, sub).Paragraphs)
@@ -9121,7 +9121,7 @@ namespace Nikse.SubtitleEdit.Forms
             ShowStatus(_language.ParsingMatroskaFile);
             Refresh();
             Cursor.Current = Cursors.WaitCursor;
-            var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
+            var sub = matroska.GetMatroskaSubtitle(matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
             Cursor.Current = Cursors.Default;
 
             MakeHistoryForUndo(_language.BeforeImportFromMatroskaFile);
@@ -9375,7 +9375,7 @@ namespace Nikse.SubtitleEdit.Forms
             ShowStatus(_language.ParsingMatroskaFile);
             Refresh();
             Cursor.Current = Cursors.WaitCursor;
-            var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
+            var sub = matroska.GetMatroskaSubtitle(matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
             Cursor.Current = Cursors.Default;
 
             MakeHistoryForUndo(_language.BeforeImportFromMatroskaFile);
@@ -9468,7 +9468,7 @@ namespace Nikse.SubtitleEdit.Forms
             ShowStatus(_language.ParsingMatroskaFile);
             Refresh();
             Cursor.Current = Cursors.WaitCursor;
-            var sub = matroska.GetMatroskaSubtitle((int)matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
+            var sub = matroska.GetMatroskaSubtitle(matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
             Cursor.Current = Cursors.Default;
 
             int noOfErrors = 0;

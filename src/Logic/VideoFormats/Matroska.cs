@@ -61,15 +61,15 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private int _pixelWidth, _pixelHeight;
         private double _frameRate;
         private string _videoCodecId;
-        private double _durationInMilliseconds;
 
         private List<MatroskaSubtitleInfo> _subtitleTracks;
         private int _subtitleRipTrackNumber;
         private List<SubtitleSequence> _subtitleRip = new List<SubtitleSequence>();
-        private long _timecodeScale = 1000000; // Timestamp scale in nanoseconds (1.000.000 means all timestamps in the segment are expressed in milliseconds).
         private List<MatroskaTrackInfo> _tracks;
 
         private readonly Element _segmentElement;
+        private long _timecodeScale = 1000000;
+        private double _duration;
 
         public Matroska(string fileName)
         {
@@ -109,7 +109,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         public List<MatroskaTrackInfo> GetTrackInfo()
         {
-            ReadFile(true, null);
+            ReadSegmentInfoAndTracks();
             return _tracks;
         }
 
@@ -129,10 +129,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 switch (element.Id)
                 {
                     case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(element);
+                        ReadInfoElement(element);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(element);
+                        ReadTracksElement(element);
                         break;
                     case ElementId.Cluster:
                         return FindTrackStartInCluster(element, trackNumber);
@@ -158,7 +158,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         clusterTimeCode = (long)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.BlockGroup:
-                        AnalyzeMatroskaBlock(clusterTimeCode);
+                        ReadBlockGroupElement(clusterTimeCode);
                         break;
                     case ElementId.SimpleBlock:
                         var trackNumber = (int)ReadVariableLengthUInt();
@@ -175,7 +175,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             return (clusterTimeCode + trackStartTime) * _timecodeScale / 1000000;
         }
 
-        private void AnalyzeMatroskaTrackVideo(Element videoElement)
+        private void ReadVideoElement(Element videoElement)
         {
             Element element;
             while (_stream.Position < videoElement.EndPosition && (element = ReadElement()) != null)
@@ -195,7 +195,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private void AnalyzeMatroskaTrackEntry(Element trackEntryElement)
+        private void ReadTrackEntryElement(Element trackEntryElement)
         {
             long defaultDuration = 0;
             bool isVideo = false;
@@ -219,7 +219,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         defaultDuration = (int)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.Video:
-                        AnalyzeMatroskaTrackVideo(element);
+                        ReadVideoElement(element);
                         isVideo = true;
                         break;
                     case ElementId.Audio:
@@ -263,7 +263,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         var contentEncodingElement = ReadElement();
                         if (contentEncodingElement != null && contentEncodingElement.Id == ElementId.ContentEncoding)
                         {
-                            AnalyzeMatroskaContentEncoding(element, ref contentCompressionAlgorithm, ref contentEncodingType);
+                            ReadContentEncodingElement(element, ref contentCompressionAlgorithm, ref contentEncodingType);
                         }
                         break;
                 }
@@ -296,7 +296,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private void AnalyzeMatroskaContentEncoding(Element contentEncodingElement, ref int contentCompressionAlgorithm, ref int contentEncodingType)
+        private void ReadContentEncodingElement(Element contentEncodingElement, ref int contentCompressionAlgorithm, ref int contentEncodingType)
         {
             Element element;
             while (_stream.Position < contentEncodingElement.EndPosition && (element = ReadElement()) != null)
@@ -327,42 +327,43 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                                     var contentCompSettings = ReadUInt((int)compElement.DataSize);
                                     System.Diagnostics.Debug.WriteLine("ContentCompSettings: " + contentCompSettings);
                                     break;
+                                default:
+                                    _stream.Seek(element.DataSize, SeekOrigin.Current);
+                                    break;
                             }
                         }
-                        break;
-                }
-                _stream.Seek(element.EndPosition, SeekOrigin.Begin);
-            }
-        }
-
-        private void AnalyzeMatroskaSegmentInformation(Element infoElement)
-        {
-            var duration = 0.0;
-
-            Element element;
-            while (_stream.Position < infoElement.EndPosition && (element = ReadElement()) != null)
-            {
-                switch (element.Id)
-                {
-                    case ElementId.TimecodeScale: // Timestamp scale in nanoseconds (1.000.000 means all timestamps in the segment are expressed in milliseconds)
-                        _timecodeScale = (int)ReadUInt((int)element.DataSize);
-                        break;
-                    case ElementId.Duration: // Duration of the segment (based on TimecodeScale)
-                        duration = element.DataSize == 4 ? ReadFloat32() : ReadFloat64();
                         break;
                     default:
                         _stream.Seek(element.DataSize, SeekOrigin.Current);
                         break;
                 }
             }
-
-            if (_timecodeScale > 0 && duration > 0)
-                _durationInMilliseconds = duration / _timecodeScale * 1000000.0;
-            else if (duration > 0)
-                _durationInMilliseconds = duration;
         }
 
-        private void AnalyzeMatroskaTracks(Element tracksElement)
+        private void ReadInfoElement(Element infoElement)
+        {
+            Element element;
+            while (_stream.Position < infoElement.EndPosition && (element = ReadElement()) != null)
+            {
+                switch (element.Id)
+                {
+                    case ElementId.TimecodeScale:
+                        // Timestamp scale in nanoseconds (1.000.000 means all timestamps in the segment are expressed in milliseconds)
+                        _timecodeScale = (int)ReadUInt((int)element.DataSize);
+                        break;
+                    case ElementId.Duration:
+                        // Duration of the segment (based on TimecodeScale)
+                        _duration = element.DataSize == 4 ? ReadFloat32() : ReadFloat64();
+                        _duration /= _timecodeScale * 1000000.0;
+                        break;
+                    default:
+                        _stream.Seek(element.DataSize, SeekOrigin.Current);
+                        break;
+                }
+            }
+        }
+
+        private void ReadTracksElement(Element tracksElement)
         {
             _tracks = new List<MatroskaTrackInfo>();
             _subtitleTracks = new List<MatroskaSubtitleInfo>();
@@ -372,7 +373,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             {
                 if (element.Id == ElementId.TrackEntry)
                 {
-                    AnalyzeMatroskaTrackEntry(element);
+                    ReadTrackEntryElement(element);
                 }
                 else
                 {
@@ -381,18 +382,19 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        public void GetMatroskaInfo(out double frameRate, out int pixelWidth, out int pixelHeight, out double millisecondDuration, out string videoCodec)
+        /// <param name="duration">Duration of the segment in milliseconds.</param>
+        public void GetMatroskaInfo(out double frameRate, out int pixelWidth, out int pixelHeight, out double duration, out string videoCodec)
         {
-            ReadFile(true, null);
+            ReadSegmentInfoAndTracks();
 
             pixelWidth = _pixelWidth;
             pixelHeight = _pixelHeight;
             frameRate = _frameRate;
-            millisecondDuration = _durationInMilliseconds;
+            duration = _duration;
             videoCodec = _videoCodecId;
         }
 
-        private void AnalyzeMatroskaCluster(Element clusterElement)
+        private void ReadCluster(Element clusterElement)
         {
             long clusterTimeCode = 0;
             const long duration = 0;
@@ -406,10 +408,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         clusterTimeCode = (long)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.BlockGroup:
-                        AnalyzeMatroskaBlock(clusterTimeCode);
+                        ReadBlockGroupElement(clusterTimeCode);
                         break;
                     case ElementId.SimpleBlock:
-                        long before = _stream.Position;
+                        var before = _stream.Position;
                         var trackNumber = (int)ReadVariableLengthUInt();
                         if (trackNumber == _subtitleRipTrackNumber)
                         {
@@ -418,7 +420,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                             // lacing
                             var flags = (byte)_stream.ReadByte();
                             byte numberOfFrames;
-                            switch ((flags & 6)) // 6 = 00000110
+                            switch (flags & 6) // 6 = 00000110
                             {
                                 case 0:
                                     System.Diagnostics.Debug.Print("No lacing"); // No lacing
@@ -452,7 +454,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private void AnalyzeMatroskaBlock(long clusterTimeCode)
+        private void ReadBlockGroupElement(long clusterTimeCode)
         {
             var blockElement = ReadElement();
             if (blockElement == null || blockElement.Id != ElementId.Block)
@@ -465,28 +467,27 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
             // lacing
             var flags = (byte)_stream.ReadByte();
-            byte numberOfFrames;
+            int frames;
             switch (flags & 6)
             {
                 case 0: // 00000000 = No lacing
                     System.Diagnostics.Debug.Print("No lacing");
                     break;
                 case 2: // 00000010 = Xiph lacing
-                    System.Diagnostics.Debug.Print("Xiph lacing");
-                    numberOfFrames = (byte)_stream.ReadByte();
-                    numberOfFrames++;
+                    frames = _stream.ReadByte() + 1;
+                    System.Diagnostics.Debug.Print("Xiph lacing ({0} frames)", frames);
                     break;
                 case 4: // 00000100 = Fixed-size lacing
-                    System.Diagnostics.Debug.Print("Fixed-size lacing");
-                    numberOfFrames = (byte)_stream.ReadByte();
-                    numberOfFrames++;
-                    for (int i = 1; i <= numberOfFrames; i++)
+                    frames = _stream.ReadByte() + 1;
+                    for (var i = 0; i < frames; i++)
+                    {
                         _stream.ReadByte(); // frames
+                    }
+                    System.Diagnostics.Debug.Print("Fixed-size lacing ({0} frames)", frames);
                     break;
                 case 6: // 00000110 = EMBL lacing
-                    System.Diagnostics.Debug.Print("EBML lacing");
-                    numberOfFrames = (byte)_stream.ReadByte();
-                    numberOfFrames++;
+                    frames = _stream.ReadByte() + 1;
+                    System.Diagnostics.Debug.Print("EBML lacing ({0} frames)", frames);
                     break;
             }
 
@@ -499,10 +500,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                     var buffer = new byte[sublength];
                     _stream.Read(buffer, 0, (int)sublength);
 
-                    //string s = GetMatroskaString(sublength);
-                    //s = s.Replace("\\N", Environment.NewLine);
-
-                    _stream.Seek(blockElement.EndPosition, SeekOrigin.Begin);
+                    // read the BlockDuration that comes after the Block element
                     var durationElement = ReadElement();
                     var duration = durationElement != null && durationElement.Id == ElementId.BlockDuration
                         ? (long)ReadUInt((int)durationElement.DataSize)
@@ -515,14 +513,14 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         public List<MatroskaSubtitleInfo> GetMatroskaSubtitleTracks()
         {
-            ReadFile(true, null);
+            ReadSegmentInfoAndTracks();
             return _subtitleTracks;
         }
 
-        public List<SubtitleSequence> GetMatroskaSubtitle(int trackNumber, LoadMatroskaCallback callback)
+        public List<SubtitleSequence> GetMatroskaSubtitle(int trackNumber, LoadMatroskaCallback progressCallback)
         {
             _subtitleRipTrackNumber = trackNumber;
-            ReadFile(false, callback);
+            ReadSegmentCluster(progressCallback);
             return _subtitleRip;
         }
 
@@ -534,7 +532,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        private void ReadFile(bool tracksOnly, LoadMatroskaCallback callback)
+        private void ReadSegmentInfoAndTracks()
         {
             // go to segment
             _stream.Seek(_segmentElement.DataPosition, SeekOrigin.Begin);
@@ -545,25 +543,38 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 switch (element.Id)
                 {
                     case ElementId.Info:
-                        AnalyzeMatroskaSegmentInformation(element);
+                        ReadInfoElement(element);
                         break;
                     case ElementId.Tracks:
-                        AnalyzeMatroskaTracks(element);
-                        if (tracksOnly)
-                        {
-                            return;
-                        }
-                        break;
-                    case ElementId.Cluster:
-                        AnalyzeMatroskaCluster(element);
-                        break;
+                        ReadTracksElement(element);
+                        return;
                     default:
                         _stream.Seek(element.DataSize, SeekOrigin.Current);
                         break;
                 }
-                if (callback != null)
+            }
+        }
+
+        private void ReadSegmentCluster(LoadMatroskaCallback progressCallback)
+        {
+            // go to segment
+            _stream.Seek(_segmentElement.DataPosition, SeekOrigin.Begin);
+
+            Element element;
+            while (_stream.Position < _segmentElement.EndPosition && (element = ReadElement()) != null)
+            {
+                if (element.Id == ElementId.Cluster)
                 {
-                    callback.Invoke(element.EndPosition, _streamLength);
+                    ReadCluster(element);
+                }
+                else
+                {
+                    _stream.Seek(element.DataSize, SeekOrigin.Current);
+                }
+
+                if (progressCallback != null)
+                {
+                    progressCallback.Invoke(element.EndPosition, _streamLength);
                 }
             }
         }

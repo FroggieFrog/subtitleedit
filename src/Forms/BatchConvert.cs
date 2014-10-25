@@ -720,7 +720,7 @@ namespace Nikse.SubtitleEdit.Forms
                                             else if (x.CodecId.Equals("S_TEXT/UTF8", StringComparison.OrdinalIgnoreCase) || x.CodecId.Equals("S_TEXT/SSA", StringComparison.OrdinalIgnoreCase) || x.CodecId.Equals("S_TEXT/ASS", StringComparison.OrdinalIgnoreCase))
                                             {
                                                 _matroskaListViewItem = item;
-                                                var mkvSub = matroska.GetMatroskaSubtitle((int)x.TrackNumber, MatroskaProgress);
+                                                var mkvSub = matroska.GetMatroskaSubtitle(x.TrackNumber, MatroskaProgress);
 
                                                 bool isSsa = false;
                                                 if (x.CodecPrivate.Contains("[script info]", StringComparison.OrdinalIgnoreCase))
