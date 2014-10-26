@@ -9034,15 +9034,15 @@ namespace Nikse.SubtitleEdit.Forms
                     if (subtitleChooser.ShowDialog(this) == DialogResult.OK)
                     {
                         LoadMatroskaSubtitle(subtitleList[subtitleChooser.SelectedIndex], matroska, false);
-                        if (Path.GetExtension(matroska.FileName).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
-                            OpenVideo(matroska.FileName);
+                        if (Path.GetExtension(matroska.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+                            OpenVideo(matroska.Path);
                     }
                 }
                 else
                 {
                     LoadMatroskaSubtitle(subtitleList[0], matroska, false);
-                    if (Path.GetExtension(matroska.FileName).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
-                        OpenVideo(matroska.FileName);
+                    if (Path.GetExtension(matroska.Path).Equals(".mkv", StringComparison.OrdinalIgnoreCase))
+                        OpenVideo(matroska.Path);
                 }
             }
         }
@@ -9086,7 +9086,7 @@ namespace Nikse.SubtitleEdit.Forms
             var sub = matroska.GetMatroskaSubtitle(matroskaSubtitleInfo.TrackNumber, MatroskaProgress);
             if (isSsa)
             {
-                foreach (var p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.FileName, format, sub).Paragraphs)
+                foreach (var p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.Path, format, sub).Paragraphs)
                 {
                     subtitle.Paragraphs.Add(p);
                 }
@@ -9158,7 +9158,7 @@ namespace Nikse.SubtitleEdit.Forms
 
             if (isSsa)
             {
-                foreach (Paragraph p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.FileName, format, sub).Paragraphs)
+                foreach (Paragraph p in LoadMatroskaSSA(matroskaSubtitleInfo, matroska.Path, format, sub).Paragraphs)
                 {
                     _subtitle.Paragraphs.Add(p);
                 }
@@ -9216,9 +9216,9 @@ namespace Nikse.SubtitleEdit.Forms
             ShowStatus(_language.SubtitleImportedFromMatroskaFile);
             _subtitle.Renumber(1);
             _subtitle.WasLoadedWithFrameNumbers = false;
-            if (matroska.FileName.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) || matroska.FileName.EndsWith(".mks", StringComparison.OrdinalIgnoreCase))
+            if (matroska.Path.EndsWith(".mkv", StringComparison.OrdinalIgnoreCase) || matroska.Path.EndsWith(".mks", StringComparison.OrdinalIgnoreCase))
             {
-                _fileName = matroska.FileName.Substring(0, matroska.FileName.Length - 4);
+                _fileName = matroska.Path.Substring(0, matroska.Path.Length - 4);
                 Text = Title + " - " + _fileName;
             }
             else
@@ -9448,7 +9448,7 @@ namespace Nikse.SubtitleEdit.Forms
                 SubtitleListview1.FirstVisibleIndex = -1;
                 SubtitleListview1.SelectIndexAndEnsureVisible(0);
 
-                _fileName = Path.GetFileNameWithoutExtension(matroska.FileName);
+                _fileName = Path.GetFileNameWithoutExtension(matroska.Path);
                 _converted = true;
                 Text = Title;
 
@@ -9544,7 +9544,7 @@ namespace Nikse.SubtitleEdit.Forms
 
             var formSubOcr = new VobSubOcr();
             _formPositionsAndSizes.SetPositionAndSize(formSubOcr);
-            formSubOcr.Initialize(subtitles, Configuration.Settings.VobSubOcr, matroska.FileName);
+            formSubOcr.Initialize(subtitles, Configuration.Settings.VobSubOcr, matroska.Path);
             if (_loading)
             {
                 formSubOcr.Icon = (Icon)Icon.Clone();

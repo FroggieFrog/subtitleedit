@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Nikse.SubtitleEdit.Core;
 
 namespace Nikse.SubtitleEdit.Logic.VideoFormats
 {
@@ -54,9 +55,8 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
     {
         public delegate void LoadMatroskaCallback(long position, long total);
 
-        private readonly string _fileName;
+        private readonly string _path;
         private readonly FileStream _stream;
-        private readonly long _streamLength;
         private readonly bool _valid;
         private int _pixelWidth, _pixelHeight;
         private double _frameRate;
@@ -71,11 +71,10 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private long _timecodeScale = 1000000;
         private double _duration;
 
-        public Matroska(string fileName)
+        public Matroska(string path)
         {
-            _fileName = fileName;
-            _stream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            _streamLength = _stream.Length;
+            _path = path;
+            _stream = new FastFileStream(path);
 
             // read header
             var headerElement = ReadElement();
@@ -99,11 +98,11 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
         }
 
-        public string FileName
+        public string Path
         {
             get
             {
-                return _fileName;
+                return _path;
             }
         }
 
@@ -124,7 +123,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             _stream.Seek(_segmentElement.DataPosition, SeekOrigin.Begin);
 
             Element element;
-            while (_stream.Position < _streamLength && (element = ReadElement()) != null)
+            while (_stream.Position < _stream.Length && (element = ReadElement()) != null)
             {
                 switch (element.Id)
                 {
@@ -574,7 +573,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
                 if (progressCallback != null)
                 {
-                    progressCallback.Invoke(element.EndPosition, _streamLength);
+                    progressCallback.Invoke(element.EndPosition, _stream.Length);
                 }
             }
         }
