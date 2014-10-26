@@ -580,8 +580,8 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 
         private Element ReadElement()
         {
-            var id = ReadEbmlId();
-            if (id == ElementId.None)
+            var id = (ElementId)ReadVariableLengthUInt(false);
+            if (id <= ElementId.None)
             {
                 return null;
             }
@@ -590,50 +590,14 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             return new Element(id, _stream.Position, size);
         }
 
-        private ElementId ReadEbmlId()
+        private ulong ReadVariableLengthUInt(bool unsetFirstBit = true)
         {
             // Begin loop with byte set to newly read byte
-            var first = (byte)_stream.ReadByte();
+            var first = _stream.ReadByte();
             var length = 0;
 
             // Begin by counting the bits unset before the highest set bit
-            uint mask = 0x80;
-            for (var i = 0; i < 8; i++)
-            {
-                // Start at left, shift to right
-                if ((first & mask) == mask)
-                {
-                    length = i + 1;
-                    break;
-                }
-                mask >>= 1;
-            }
-            if (length == 0)
-            {
-                // Invalid identifier
-                return 0;
-            }
-
-            // Setup space to store the integer
-            var data = new byte[length];
-            data[0] = first;
-            if (length > 1)
-            {
-                // Read the rest of the integer
-                _stream.Read(data, 1, length - 1);
-            }
-
-            return (ElementId)BigEndianToUInt64(data);
-        }
-
-        private ulong ReadVariableLengthUInt()
-        {
-            // Begin loop with byte set to newly read byte
-            var first = (byte)_stream.ReadByte();
-            var length = 0;
-
-            // Begin by counting the bits unset before the highest set bit
-            uint mask = 0x80;
+            var mask = 0x80;
             for (var i = 0; i < 8; i++)
             {
                 // Start at left, shift to right
@@ -649,16 +613,14 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                 return 0;
             }
 
-            // Setup space to store the integer
-            var data = new byte[length];
-            data[0] = (byte)(first & (0xFF >> length));
-            if (length > 1)
+            // Read remaining big endian bytes and convert to 64-bit unsigned integer.
+            var result = (ulong)(unsetFirstBit ? first & (0xFF >> length) : first);
+            result <<= --length * 8;
+            for (var i = 1; i <= length; i++)
             {
-                // Read the rest of the integer
-                _stream.Read(data, 1, length - 1);
+                result |= (ulong)_stream.ReadByte() << (length - i) * 8;
             }
-
-            return BigEndianToUInt64(data);
+            return result;
         }
 
         /// <summary>
@@ -671,7 +633,16 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         {
             var data = new byte[length];
             _stream.Read(data, 0, length);
-            return BigEndianToUInt64(data);
+
+            // Convert the big endian byte array to a 64-bit unsigned integer.
+            var result = 0UL;
+            var shift = 0;
+            for (var i = length - 1; i >= 0; i--)
+            {
+                result |= (ulong)data[i] << shift;
+                shift += 8;
+            }
+            return result;
         }
 
         /// <summary>
@@ -723,23 +694,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             var buffer = new byte[length];
             _stream.Read(buffer, 0, length);
             return encoding.GetString(buffer);
-        }
-
-        /// <summary>
-        /// Returns a 64-bit unsigned integer converted from a big endian byte array.
-        /// </summary>
-        /// <param name="value">An array of bytes.</param>
-        /// <returns>A 64-bit unsigned integer.</returns>
-        private static ulong BigEndianToUInt64(byte[] value)
-        {
-            var result = 0UL;
-            var shift = 0;
-            for (var i = value.Length - 1; i >= 0; i--)
-            {
-                result |= (ulong)value[i] << shift;
-                shift += 8;
-            }
-            return result;
         }
     }
 }
