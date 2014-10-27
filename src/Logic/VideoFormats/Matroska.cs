@@ -9,23 +9,36 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
 {
     public class SubtitleSequence
     {
-        public long StartMilliseconds { get; set; }
-        public long EndMilliseconds { get; set; }
-        public byte[] BinaryData { get; set; }
+        public byte[] Data { get; set; }
+        public long Start { get; set; }
+        public long Duration { get; set; }
 
-        public SubtitleSequence(byte[] data, long startMilliseconds, long endMilliseconds)
+        public SubtitleSequence(byte[] data, long start, long duration)
         {
-            BinaryData = data;
-            StartMilliseconds = startMilliseconds;
-            EndMilliseconds = endMilliseconds;
+            Data = data;
+            Start = start;
+            Duration = duration;
+        }
+
+        public SubtitleSequence(byte[] data, long start)
+            : this(data, start, 0)
+        {
+        }
+
+        public long End
+        {
+            get
+            {
+                return Start + Duration;
+            }
         }
 
         public string Text
         {
             get
             {
-                if (BinaryData != null)
-                    return System.Text.Encoding.UTF8.GetString(BinaryData).Replace("\\N", Environment.NewLine);
+                if (Data != null)
+                    return System.Text.Encoding.UTF8.GetString(Data).Replace("\\N", Environment.NewLine);
                 return string.Empty;
             }
         }
@@ -157,7 +170,7 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         clusterTimeCode = (long)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.BlockGroup:
-                        ReadBlockGroupElement(clusterTimeCode);
+                        ReadBlockGroupElement(element, clusterTimeCode);
                         break;
                     case ElementId.SimpleBlock:
                         var trackNumber = (int)ReadVariableLengthUInt();
@@ -396,7 +409,6 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
         private void ReadCluster(Element clusterElement)
         {
             long clusterTimeCode = 0;
-            const long duration = 0;
 
             Element element;
             while (_stream.Position < clusterElement.EndPosition && (element = ReadElement()) != null)
@@ -407,61 +419,62 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
                         clusterTimeCode = (long)ReadUInt((int)element.DataSize);
                         break;
                     case ElementId.BlockGroup:
-                        ReadBlockGroupElement(clusterTimeCode);
+                        ReadBlockGroupElement(element, clusterTimeCode);
                         break;
                     case ElementId.SimpleBlock:
-                        var before = _stream.Position;
-                        var trackNumber = (int)ReadVariableLengthUInt();
-                        if (trackNumber == _subtitleRipTrackNumber)
+                        var subtitle = ReadSubtitleBlock(element, clusterTimeCode);
+                        if (subtitle != null)
                         {
-                            int timeCode = ReadInt16();
-
-                            // lacing
-                            var flags = (byte)_stream.ReadByte();
-                            byte numberOfFrames;
-                            switch (flags & 6) // 6 = 00000110
-                            {
-                                case 0:
-                                    System.Diagnostics.Debug.Print("No lacing"); // No lacing
-                                    break;
-                                case 2:
-                                    System.Diagnostics.Debug.Print("Xiph lacing"); // 2 = 00000010 = Xiph lacing
-                                    numberOfFrames = (byte)_stream.ReadByte();
-                                    numberOfFrames++;
-                                    break;
-                                case 4:
-                                    System.Diagnostics.Debug.Print("fixed-size"); // 4 = 00000100 = Fixed-size lacing
-                                    numberOfFrames = (byte)_stream.ReadByte();
-                                    numberOfFrames++;
-                                    for (int i = 1; i <= numberOfFrames; i++)
-                                        _stream.ReadByte(); // frames
-                                    break;
-                                case 6:
-                                    System.Diagnostics.Debug.Print("EBML"); // 6 = 00000110 = EMBL
-                                    numberOfFrames = (byte)_stream.ReadByte();
-                                    numberOfFrames++;
-                                    break;
-                            }
-
-                            var buffer = new byte[element.DataSize - (_stream.Position - before)];
-                            _stream.Read(buffer, 0, buffer.Length);
-                            _subtitleRip.Add(new SubtitleSequence(buffer, timeCode + clusterTimeCode, timeCode + clusterTimeCode + duration));
+                            _subtitleRip.Add(subtitle);
                         }
                         break;
+                    default:
+                        _stream.Seek(element.DataSize, SeekOrigin.Current);
+                        break;
                 }
-                _stream.Seek(element.EndPosition, SeekOrigin.Begin);
             }
         }
 
-        private void ReadBlockGroupElement(long clusterTimeCode)
+        private void ReadBlockGroupElement(Element clusterElement, long clusterTimeCode)
         {
-            var blockElement = ReadElement();
-            if (blockElement == null || blockElement.Id != ElementId.Block)
+            SubtitleSequence subtitle = null;
+
+            Element element;
+            while (_stream.Position < clusterElement.EndPosition && (element = ReadElement()) != null)
             {
-                return;
+                switch (element.Id)
+                {
+                    case ElementId.Block:
+                        subtitle = ReadSubtitleBlock(element, clusterTimeCode);
+                        if (subtitle == null)
+                        {
+                            return;
+                        }
+                        _subtitleRip.Add(subtitle);
+                        break;
+                    case ElementId.BlockDuration:
+                        var duration = (long)ReadUInt((int)element.DataSize);
+                        if (subtitle != null)
+                        {
+                            subtitle.Duration = duration;
+                        }
+                        break;
+                    default:
+                        _stream.Seek(element.DataSize, SeekOrigin.Current);
+                        break;
+                }
+            }
+        }
+
+        private SubtitleSequence ReadSubtitleBlock(Element blockElement, long clusterTimeCode)
+        {
+            var trackNumber = (int)ReadVariableLengthUInt();
+            if (trackNumber != _subtitleRipTrackNumber)
+            {
+                _stream.Seek(blockElement.EndPosition, SeekOrigin.Begin);
+                return null;
             }
 
-            var trackNumber = (int)ReadVariableLengthUInt();
             var timeCode = ReadInt16();
 
             // lacing
@@ -491,23 +504,11 @@ namespace Nikse.SubtitleEdit.Logic.VideoFormats
             }
 
             // save subtitle data
-            if (trackNumber == _subtitleRipTrackNumber)
-            {
-                long sublength = blockElement.EndPosition - _stream.Position;
-                if (sublength > 0)
-                {
-                    var buffer = new byte[sublength];
-                    _stream.Read(buffer, 0, (int)sublength);
+            var dataLength = (int)(blockElement.EndPosition - _stream.Position);
+            var data = new byte[dataLength];
+            _stream.Read(data, 0, dataLength);
 
-                    // read the BlockDuration that comes after the Block element
-                    var durationElement = ReadElement();
-                    var duration = durationElement != null && durationElement.Id == ElementId.BlockDuration
-                        ? (long)ReadUInt((int)durationElement.DataSize)
-                        : 0L;
-
-                    _subtitleRip.Add(new SubtitleSequence(buffer, timeCode + clusterTimeCode, timeCode + clusterTimeCode + duration));
-                }
-            }
+            return new SubtitleSequence(data, clusterTimeCode + timeCode);
         }
 
         public List<MatroskaSubtitleInfo> GetMatroskaSubtitleTracks()

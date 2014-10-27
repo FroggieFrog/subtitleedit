@@ -747,7 +747,7 @@ namespace Nikse.SubtitleEdit.Forms
                                                 {
                                                     foreach (SubtitleSequence p in mkvSub)
                                                     {
-                                                        sub.Paragraphs.Add(new Paragraph(p.Text, p.StartMilliseconds, p.EndMilliseconds));
+                                                        sub.Paragraphs.Add(new Paragraph(p.Text, p.Start, p.End));
                                                     }
                                                 }
                                                 break;

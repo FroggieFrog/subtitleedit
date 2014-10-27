@@ -9095,7 +9095,7 @@ namespace Nikse.SubtitleEdit.Forms
             {
                 foreach (SubtitleSequence p in sub)
                 {
-                    subtitle.Paragraphs.Add(new Paragraph(p.Text, p.StartMilliseconds, p.EndMilliseconds));
+                    subtitle.Paragraphs.Add(new Paragraph(p.Text, p.Start, p.End));
                 }
             }
             return subtitle;
@@ -9208,7 +9208,7 @@ namespace Nikse.SubtitleEdit.Forms
             {
                 foreach (SubtitleSequence p in sub)
                 {
-                    _subtitle.Paragraphs.Add(new Paragraph(p.Text, p.StartMilliseconds, p.EndMilliseconds));
+                    _subtitle.Paragraphs.Add(new Paragraph(p.Text, p.Start, p.End));
                 }
             }
 
@@ -9312,7 +9312,7 @@ namespace Nikse.SubtitleEdit.Forms
             const string timeCodeFormat = "{0}:{1:00}:{2:00}.{3:00}"; // h:mm:ss.cc
             foreach (SubtitleSequence mp in sub)
             {
-                Paragraph p = new Paragraph(string.Empty, mp.StartMilliseconds, mp.EndMilliseconds);
+                Paragraph p = new Paragraph(string.Empty, mp.Start, mp.End);
                 string start = string.Format(timeCodeFormat, p.StartTime.Hours, p.StartTime.Minutes, p.StartTime.Seconds, p.StartTime.Milliseconds / 10);
                 string end = string.Format(timeCodeFormat, p.EndTime.Hours, p.EndTime.Minutes, p.EndTime.Seconds, p.EndTime.Milliseconds / 10);
 
@@ -9391,7 +9391,7 @@ namespace Nikse.SubtitleEdit.Forms
                     bool error = false;
                     MemoryStream outStream = new MemoryStream();
                     var outZStream = new zlib.ZOutputStream(outStream);
-                    MemoryStream inStream = new MemoryStream(p.BinaryData);
+                    MemoryStream inStream = new MemoryStream(p.Data);
                     byte[] buffer = null;
                     try
                     {
@@ -9412,13 +9412,13 @@ namespace Nikse.SubtitleEdit.Forms
                     }
 
                     if (!error)
-                        mergedVobSubPacks.Add(new VobSubMergedPack(buffer, TimeSpan.FromMilliseconds(p.StartMilliseconds), 32, null));
+                        mergedVobSubPacks.Add(new VobSubMergedPack(buffer, TimeSpan.FromMilliseconds(p.Start), 32, null));
                 }
                 else
                 {
-                    mergedVobSubPacks.Add(new VobSubMergedPack(p.BinaryData, TimeSpan.FromMilliseconds(p.StartMilliseconds), 32, null));
+                    mergedVobSubPacks.Add(new VobSubMergedPack(p.Data, TimeSpan.FromMilliseconds(p.Start), 32, null));
                 }
-                mergedVobSubPacks[mergedVobSubPacks.Count - 1].EndTime = TimeSpan.FromMilliseconds(p.EndMilliseconds);
+                mergedVobSubPacks[mergedVobSubPacks.Count - 1].EndTime = TimeSpan.FromMilliseconds(p.End);
 
                 // fix overlapping (some versions of Handbrake makes overlapping time codes - thx Hawke)
                 if (mergedVobSubPacks.Count > 1 && mergedVobSubPacks[mergedVobSubPacks.Count - 2].EndTime > mergedVobSubPacks[mergedVobSubPacks.Count - 1].StartTime)
@@ -9485,7 +9485,7 @@ namespace Nikse.SubtitleEdit.Forms
                 {
                     MemoryStream outStream = new MemoryStream();
                     var outZStream = new zlib.ZOutputStream(outStream);
-                    MemoryStream inStream = new MemoryStream(p.BinaryData);
+                    MemoryStream inStream = new MemoryStream(p.Data);
                     try
                     {
                         CopyStream(inStream, outZStream);
@@ -9495,7 +9495,7 @@ namespace Nikse.SubtitleEdit.Forms
                     }
                     catch (Exception exception)
                     {
-                        var tc = new TimeCode(p.StartMilliseconds);
+                        var tc = new TimeCode(p.Start);
                         lastError = tc + ": " + exception.Message + ": " + exception.StackTrace;
                         noOfErrors++;
                     }
@@ -9507,7 +9507,7 @@ namespace Nikse.SubtitleEdit.Forms
                 }
                 else
                 {
-                    buffer = p.BinaryData;
+                    buffer = p.Data;
                 }
                 if (buffer != null && buffer.Length > 100)
                 {
@@ -9515,12 +9515,12 @@ namespace Nikse.SubtitleEdit.Forms
                     var list = BluRaySupParser.ParseBluRaySup(ms, log, true);
                     foreach (var sup in list)
                     {
-                        sup.StartTime = (long)((p.StartMilliseconds - 1) * 90.0);
-                        sup.EndTime = (long)((p.EndMilliseconds - 1) * 90.0);
+                        sup.StartTime = (long)((p.Start - 1) * 90.0);
+                        sup.EndTime = (long)((p.End - 1) * 90.0);
                         subtitles.Add(sup);
 
                         // fix overlapping
-                        if (subtitles.Count > 1 && sub[subtitles.Count - 2].EndMilliseconds > sub[subtitles.Count - 1].StartMilliseconds)
+                        if (subtitles.Count > 1 && sub[subtitles.Count - 2].End > sub[subtitles.Count - 1].Start)
                             subtitles[subtitles.Count - 2].EndTime = subtitles[subtitles.Count - 1].StartTime - 1;
                     }
                     ms.Close();
@@ -9530,7 +9530,7 @@ namespace Nikse.SubtitleEdit.Forms
                     var lastSub = subtitles[subtitles.Count - 1];
                     if (lastSub.StartTime == lastSub.EndTime)
                     {
-                        lastSub.EndTime = (long)((p.StartMilliseconds - 1) * 90.0);
+                        lastSub.EndTime = (long)((p.Start - 1) * 90.0);
                         if (lastSub.EndTime - lastSub.StartTime > 1000000)
                             lastSub.EndTime = lastSub.StartTime;
                     }
